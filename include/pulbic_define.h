@@ -35,6 +35,11 @@ enum ERRCODE{
 	ERR_EPOLLCTL = -2000;
 	ERR_EPOLLFULL,
 	ERR_EPOLLDEL,
+
+	//msqqueen error
+	ERR_MSGCREATE = -3000;
+	ERR_MSGSEND，
+	ERR_MSGRECV;
 };
 
 enum{
@@ -43,6 +48,11 @@ enum{
 	epoll_err	= 0x4,
 	epoll_hup	= 0x8,
 };
+
+typedef msgstruct{
+	unsigned int typeid;//消息类型
+	char msg[MAXQUEEN_LEN];//数据
+	}stMsg;
 
 #endif
 
