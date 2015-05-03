@@ -8,6 +8,9 @@
 #include <errno.h>
 #include <sys/epoll.h>
 #include "public_define.h"
+#include "queenmsg.h"
+
+extern STfd g_arrystfd[MAX_ARRY_FD];
 
 namespace NetBaseSpace{
 
@@ -25,7 +28,7 @@ struct stEvent{
 
 class NetBase{
 	public:
-			NetBase(){}
+			NetBase(int iport,int nettype);
 			~NetBase(){}
 			int Init();
 			int AddEvents(struct stEvent* pev);
@@ -36,6 +39,7 @@ class NetBase{
 			int AcceptConn(int fd, int events, void* argv);
 			int WaitForEvents(int timeout);
 			int NetLoop(int eventCount);
+			int Tcp_Send_N(int sockfd, void *buf, int total);
 	protect:
 			int m_efd;
 			int m_sockfd;

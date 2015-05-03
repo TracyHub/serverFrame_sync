@@ -72,6 +72,8 @@ int NetBase::AcceptConn(int fd, int events, void* argv){
 			return ERR_EPOLLFULL;
 		SetEvent(accfd,EPOLLIN,RecvData,1,&m_stevent[accfd]);
 		AddEvents(&m_stevent[accfd]);
+		g_arrystfd[accfd].clientIp = accsin->sin_addr;
+		g_arrystfd[accfd].clientPort = accsin->sin_port;
 		return 0;
 }
 
@@ -87,10 +89,16 @@ int NetBase::RecvData(int fd, int events, void* argv){
 	}
 	else if (readnum > 0){
 		pev->buff[pev->len] = '\0';
-		//wirte shm ?
-		/*
-
-		*/
+		
+		bzero(g_arrystfd[pev->fd].recv,MAX_BUFFLEN);
+		memcpy(g_arrystfd[pev->fd].recv,pev->buff,pev->len);
+		
+		//wirte shm 
+		stMsg queenmsg;
+		queenmsg.typeid = 100;
+		bzero(queenmsg.msgbuff,MAX_BUFFLEN);
+		memcpy(queenmsg.msgbuff,pev->buff,pev->len);
+		
 		SetEvents(pev->fd,EPOLLOUT,SendData,1,pev);
 		AddEvents(pev);
 	}
@@ -192,4 +200,28 @@ int NetBase::NetLoop(int eventCount){
 	return 0;
 }
 
-
+int NetBase::Tcp_Send_N(int sockfd, void *buf, int total)
+{
+	int nbyte,nsend;
+	for(nbyte=0;nbyte<total;){
+		nsend = nbtye + send(sockfd,buf+nbyte,total-nbyte,0);
+		if(nsend == 0)
+			return ERR_TCPSEND;
+		else if((nsend+nbyte)<total){
+			nbyte += nsend;
+		}
+		else if(nsend == -1){
+			if(errno == EINTR)
+				nbtye = 0;
+			else if(errno == EAGAIN)
+				return nbyte;
+			else
+				return ERR_TCPSEND;
+		}
+		else{
+			return ERR_TCPSEND;
+		}
+		
+	}
+	return nbtye;
+}

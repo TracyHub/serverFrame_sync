@@ -4,7 +4,7 @@
 #include "stdio.h"
 
 typedef int (*pFuncHandleInit) (char argc,char* argv);
-typedef int (*pFuncHandleProc) (char* buf);
+typedef int (*pFuncHandleProc) (char* buf,int len,char* data);
 typedef int (*pFuncHandleFin) (char* buf);
 typedef int (*callback) (int fd, int event, void* argv);
 
