@@ -9,15 +9,18 @@ class MsgQueen{
 	public:
 		MsgQueen(){};
 		~MsgQueen(){};
-		inline int InitMsgQueen(){
-			if ((m_queenid = msgget(IPC_PRIVATE, IPC_CREAT))<0)
-				return ERR_MSGCREATE;
+		inline int InitMsgQueen(int queenid = 0){
+			if (queenid)
+				m_queenid = queenid;
 			else
-				return 0;
-			}
+				if ((m_queenid = msgget(IPC_PRIVATE, IPC_CREAT))<0)
+					return ERR_MSGCREATE;
+
+			return 0;
+		}
 		int SendMsg(void* sndbuff,int flag);
 		int RecvMsg(void * recvbuff, int flag, unsigned int typeid, int len);
-	private:
+	public:
 		int m_queenid;//消息队列id
 		
 };

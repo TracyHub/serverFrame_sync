@@ -1,6 +1,6 @@
 #include "netbase.h"
 
-using namespace netbasespace;
+using namespace NetBaseSpace;
 
 NetBase::NetBase(int iport,int nettype){
 	m_iport = iport;
@@ -14,6 +14,7 @@ NetBase::~NetBase(){
 	m_pevent = NULL;
 	close(m_efd);
 	close(m_sockfd);
+	close(m_Recvpipe);
 }
 
 int NetBase::Init(){
@@ -22,6 +23,7 @@ int NetBase::Init(){
 	m_efd = epoll_create(MAXEPOLL);
 	m_pevent = (struct epoll_event*)calloc(MAXEOPLL,sizeof(struct epoll_event));
 
+	m_Recvpipe = pipe()
 	struct sockaddr_in svraddr;
 
 	memset(&hints, 0, sizeof(struct sockaddr_in));
@@ -54,9 +56,9 @@ int NetBase::Init(){
 	//set socket rcv/send buff length
 	setsockopt(m_sockfd,SOL_SOCKET,SO_RCVBUF,(char*)&buffsize, sizeof(int));
 	setsockopt(m_sockfd,SOL_SOCKET,SO_SNDBUF,(char*)&buffsize, sizeof(int));
-
-	SetEvents(m_sockfd,EPOLLIN,AcceptConn,1,&m_stEvent[m_sockfd]);
-	return AddEvent(EPOLL_IN,m_sockfd);	
+	struct stEvent _localevent;
+	SetEvents(m_sockfd,EPOLLIN,AcceptConn,1,&_localevent);
+	return AddEvent(&_localevent);	
 }
 
 int NetBase::AcceptConn(int fd, int events, void* argv){
@@ -79,7 +81,7 @@ int NetBase::AcceptConn(int fd, int events, void* argv){
 
 int NetBase::RecvData(int fd, int events, void* argv){
 	struct stEvent* pev = (struct stEvent*)argv;
-	int readnum = recv(pev->fd,pev->buff+offset,sizeof(pev-buff)-offset-1,0);
+	int readnum = recv(pev->fd,pev->buff+pev->offset,sizeof(pev-buff)-pev->offset-1,0);
 	pev->len += readnum;
 	pev->offset += readnum;
 
@@ -94,8 +96,10 @@ int NetBase::RecvData(int fd, int events, void* argv){
 		memcpy(g_arrystfd[pev->fd].recv,pev->buff,pev->len);
 		
 		//wirte shm 
-		stMsg queenmsg;
+		//@param g_Queenid is created from main.cpp
+		stMsg queenmsg(g_Queenid);
 		queenmsg.typeid = 100;
+		queenmsg.fd = pev->fd;
 		bzero(queenmsg.msgbuff,MAX_BUFFLEN);
 		memcpy(queenmsg.msgbuff,pev->buff,pev->len);
 		
@@ -134,7 +138,19 @@ int NetBase::SendData(int fd, int events, void* argv){
 	return 0;
 }
 
-void NetBase::SetEvents(int fd, int events, callback* pFuncCallback,int status, stEvent* event){
+int NetBase::RecvQueen(int fd, int events, void* argv)
+{
+	struct stEvent* pev = (struct stEvent*)argv;
+	MsgQueen queenApi;
+	char queenmsgbuff[MAX_BUFFLEN];
+	//这里要读一次管道 不然数据会越来越多
+	/*
+	readpipe()
+	*/
+	queenApi(pev->queenid);
+	queenApi.RecvQueen(queenmsgbuff,0,RECV_TYPE,MAX_BUFFLEN);
+}
+void NetBase::SetEvents(int fd, int events, callback* pFuncCallback,int status, stEvent* event,int queenid){
 	event->fd = fd;
 	event->status = status;
 	event->pcallback = pFuncCallback;
@@ -143,6 +159,7 @@ void NetBase::SetEvents(int fd, int events, callback* pFuncCallback,int status, 
 	event->len = 0;
 	bzero(event->buff,sizeof(event->buff));
 	event->offset = 0;
+	event->queenid = queenid;
 }
 
 int NetBase::AddEvents(struct stEvent* pev){
@@ -173,7 +190,10 @@ int NetBase::DelEvents(struct stEvent* pev){
 }
 
 int NetBase::WaitForEvents(int timeout){
-	return epoll_wait(m_efd,m_pevent,MAXEPOLL,timeout);
+	while(true){
+		int fd_count = epoll_wait(m_efd,m_pevent,MAXEPOLL,timeout);
+		NetLoop(fd_count);
+	}
 }
 
 int NetBase::NetLoop(int eventCount){

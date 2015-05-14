@@ -16,13 +16,14 @@ namespace NetBaseSpace{
 
 //define event struct
 struct stEvent{
-	int 			fd;
+	int 			fd;//sockfd or pipefd
 	callback* 		pcallback;
 	int 			event;
 	unsigned int 	lastactivetime;
 	int 			status;//1:in epoll wait list,0:not in epoll wait list
 	int 			offset;
 	int 			len;
+	int 			queenid;
 	char			buff[1024*10];			
 };
 
@@ -40,14 +41,17 @@ class NetBase{
 			int WaitForEvents(int timeout);
 			int NetLoop(int eventCount);
 			int Tcp_Send_N(int sockfd, void *buf, int total);
-	protect:
+	protected:
 			int m_efd;
 			int m_sockfd;
 			struct epoll_event* m_pevent;
 			struct epoll_event m_ev;
 			char m_sendbuff[1024*100];
 			char m_recvbuff[1024*100];
-			struct stEvent m_stevent[MAXEPOLL];
+			//struct stEvent m_stevent[MAXEPOLL];
+			int m_iport;
+			int m_Recvpipe;
+			NetType m_eNettype;
 };
 };
 

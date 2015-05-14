@@ -17,6 +17,8 @@ char* dllFile;
 char* logFile;
 char g_data2client[MAX_BUFFLEN];
 
+int worker_in_coming[2] = {-1,-1};
+
 extern callback g_dll;
 MsgQueen g_msgqueen;
 MsgQueen g_recvqueen;
@@ -29,6 +31,15 @@ void ShowUsage(char argc,char* argv[]){
 	exit(0);
 }
 
+void Working_in_coming_create()
+{
+	if (pipe(worker_in_coming) == -1){
+		LOG_ERROR("pipe create error,%d",errno);
+		exit(1);
+	}
+	fcntl(worker_in_coming[0],F_SETFL,O_NONBLOCK|O_RDONLY);
+	fcntl(worker_in_coming[1],F_SETFL,O_NONBLOCK|O_WRONLY);
+}
 void ParseParams(char argc,char* argv[]){
 	g_processName 	= strdup(argv[0]);
 	confFile 		= strdup(argv[1]);
@@ -123,6 +134,11 @@ void InitLog(){
 	//empty
 }
 
+void RunAccept()
+{
+	g_netapi.WaitForEvents(500);
+}
+
 int main(char argc,char* argv[])
 {
 	int iRet;
@@ -143,6 +159,8 @@ int main(char argc,char* argv[])
 	//Init Config file
 	InitConfig();
 
+	//creat worker_in_coming pipe
+	Working_in_coming_create();
 	//Init queen msg
 	if ((iRet = InitQueenMsg()) != 0){
 		LOG_ERROR("init msgqueen err,iret:%d",iRet);
@@ -163,9 +181,18 @@ int main(char argc,char* argv[])
 	else if(pid > 0){
 		//parent process listen port and send reqmsg to queen
 		//Init Network---default tcp
+		struct stEvent _localevent;
+		g_netapi.SetEvent(worker_in_coming[0],EPOLLIN,g_netapi.RecvQueen,1,&_localevent,g_recvqueen.m_queenid);
+
+		if ((iRet = g_netapi.AddEvent(&_localevent){
+			LOG_ERROR("main AddEvent err,iRet:%d",iRet);
+			return iRet;
+		}
+
 		if ((iRet = InitNetWork() != 0){
 			LOG_ERROR("init network err,iret:%d",iRet);
 			return iRet;
+		RunAccept();
 		}
 		LoopRecvFromWorker();
 	}
